@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
         // Open the request
         http.StreamedRequest request = http.StreamedRequest(
           "POST",
-          Uri.parse("$host/${url}file/upload/$uniqueId"),
+          Uri.parse("https://$host/${url}file/upload/$uniqueId"),
         )
           ..headers["Authorization"] = token
           ..headers["ctype"] = "application/octet-stream";
