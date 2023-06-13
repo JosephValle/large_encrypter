@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String folderId = "";
   File? file;
   File? decryptedFile;
-  final int _readStreamChunkSize = 64 * 1000; // 64KB
+  final int _readStreamChunkSize = 128 * 10;
   final _algorithm = AesGcm.with256bits();
 
   @override
@@ -103,12 +103,12 @@ class _HomeScreenState extends State<HomeScreen> {
             jsonDecode(utf8.decode(response.bodyBytes))["fileVersion"]
                 ["unique_id"];
         // Open the request
-        http.StreamedRequest request = http.StreamedRequest(
-          "POST",
-          Uri.parse("https://$host/${url}file/upload/$uniqueId"),
-        )
-          ..headers["Authorization"] = token
-          ..headers["ctype"] = "application/octet-stream";
+        // http.StreamedRequest request = http.StreamedRequest(
+        //   "POST",
+        //   Uri.parse("https://$host/${url}file/upload/$uniqueId"),
+        // )
+        //   ..headers["Authorization"] = token
+        //   ..headers["ctype"] = "application/octet-stream";
 
         // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
@@ -118,7 +118,25 @@ class _HomeScreenState extends State<HomeScreen> {
         // Use web crypto method 128*10 buffer
 
         // response is a byte buffer encrypted bytes
+        final reader = FileReader();
 
+        int start = 0;
+        while (start < file!.size) {
+          final end = start + _readStreamChunkSize > file!.size
+              ? file!.size
+              : start + _readStreamChunkSize;
+          final blob = file!.slice(start, end);
+          reader.readAsArrayBuffer(blob);
+          await reader.onLoad.first;
+          final result = reader.result;
+          await Future.delayed(const Duration(microseconds: 1));
+          if (result is ByteBuffer) {
+            print( result.asUint8List());
+          } else if (result is Uint8List) {
+            print( result);
+          }
+          start += _readStreamChunkSize;
+        }
 
 
         // EventSink<List<int>> requestSink = request.sink;
@@ -129,8 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
         //   request.sink.close();
         // });
 
-        final uploadResponse = await request.send();
-        print(uploadResponse.request);
+        // final uploadResponse = await request.send();
+        // print(uploadResponse.request);
       }
     });
 
