@@ -1,11 +1,15 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
-
-import "dart:async";
 import "dart:convert";
+import "dart:math";
+import "dart:typed_data";
 import "package:cryptography/cryptography.dart";
+
+import '_javascript_bindings.dart' show jsArrayBufferFrom;
+import "_javascript_bindings.dart" as web_crypto;
+import "browser_key.dart";
+import "dart:async";
 import "package:large_encryption/encrypter.dart";
 import "package:universal_html/html.dart";
-import "dart:typed_data";
 import "package:http/http.dart" as http;
 import "package:flutter/material.dart";
 import "package:flutter_secure_storage/flutter_secure_storage.dart";
@@ -26,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String folderId = "";
   File? file;
   File? decryptedFile;
-  final int _readStreamChunkSize = 128 * 10;
+  final int _readStreamChunkSize = 128 * 1000;
   final _algorithm = AesGcm.with256bits();
 
   @override
@@ -103,22 +107,34 @@ class _HomeScreenState extends State<HomeScreen> {
             jsonDecode(utf8.decode(response.bodyBytes))["fileVersion"]
                 ["unique_id"];
         // Open the request
-        // http.StreamedRequest request = http.StreamedRequest(
-        //   "POST",
-        //   Uri.parse("https://$host/${url}file/upload/$uniqueId"),
-        // )
-        //   ..headers["Authorization"] = token
-        //   ..headers["ctype"] = "application/octet-stream";
+        http.StreamedRequest request = http.StreamedRequest(
+          "POST",
+          Uri.parse("https://$host/${url}file/upload/$uniqueId"),
+        )
+          ..headers["Authorization"] = token
+          ..headers["ctype"] = "application/octet-stream";
 
         // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
         final nonce = _algorithm.newNonce();
+
+        final jsCryptoKey = await BrowserSecretKey.jsCryptoKeyForAes(
+          secretKey,
+          secretKeyLength: 32,
+          webCryptoAlgorithm: "AES-GCM",
+          isExtractable: false,
+          allowEncrypt: true,
+          allowDecrypt: false,
+        );
+
         // Method in here to read the file a chunk at a time, print out the chunks
 
         // Use web crypto method 128*10 buffer
 
         // response is a byte buffer encrypted bytes
         final reader = FileReader();
+
+        EventSink<List<int>> requestSink = request.sink;
 
         int start = 0;
         while (start < file!.size) {
@@ -130,24 +146,44 @@ class _HomeScreenState extends State<HomeScreen> {
           await reader.onLoad.first;
           final result = reader.result;
           if (result is ByteBuffer) {
-            print( result.asUint8List().length);
+            final byteBuffer = await web_crypto.encrypt(
+              web_crypto.AesGcmParams(
+                name: "AES-GCM",
+                iv: jsArrayBufferFrom(nonce),
+                additionalData: jsArrayBufferFrom([]),
+                tagLength: AesGcm.aesGcmMac.macLength * 8,
+              ),
+              jsCryptoKey,
+              jsArrayBufferFrom(result.asUint8List()),
+            );
+
+            requestSink.add(byteBuffer.asUint8List());
           } else if (result is Uint8List) {
-            print( result);
+            final byteBuffer = await web_crypto.encrypt(
+              web_crypto.AesGcmParams(
+                name: "AES-GCM",
+                iv: jsArrayBufferFrom(nonce),
+                additionalData: jsArrayBufferFrom([]),
+                tagLength: AesGcm.aesGcmMac.macLength * 8,
+              ),
+              jsCryptoKey,
+              jsArrayBufferFrom(result),
+            );
+            requestSink.add(byteBuffer.asUint8List());
           }
           start += _readStreamChunkSize;
         }
-
 
         // EventSink<List<int>> requestSink = request.sink;
         // encryptStream.listen((chunk) {
         //   print(chunk.length);
         //   requestSink.add(chunk);
         // }).onDone(() {
-        //   request.sink.close();
+        request.sink.close();
         // });
 
-        // final uploadResponse = await request.send();
-        // print(uploadResponse.request);
+        final uploadResponse = await request.send();
+        print(uploadResponse.request);
       }
     });
 

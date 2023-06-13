@@ -42,6 +42,8 @@ class EncryptApi {
       jsCryptoKey,
       jsArrayBufferFrom(chunk),
     );
+
+
     print(byteBuffer.lengthInBytes);
 
   }
