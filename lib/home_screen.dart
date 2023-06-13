@@ -129,9 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
           reader.readAsArrayBuffer(blob);
           await reader.onLoad.first;
           final result = reader.result;
-          await Future.delayed(const Duration(microseconds: 1));
           if (result is ByteBuffer) {
-            print( result.asUint8List());
+            print( result.asUint8List().length);
           } else if (result is Uint8List) {
             print( result);
           }
@@ -167,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
       reader.readAsArrayBuffer(blob);
       await reader.onLoad.first;
       final result = reader.result;
-      await Future.delayed(const Duration(microseconds: 1));
       if (result is ByteBuffer) {
         yield result.asUint8List();
       } else if (result is Uint8List) {
