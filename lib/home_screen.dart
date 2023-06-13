@@ -1,4 +1,8 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
+
+import "dart:async";
 import "dart:convert";
+import "package:cryptography/cryptography.dart";
 import "package:large_encryption/encrypter.dart";
 import "package:universal_html/html.dart";
 import "dart:typed_data";
@@ -21,6 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String token = "";
   String folderId = "";
   File? file;
+  File? decryptedFile;
+  final int _readStreamChunkSize = 1000 * 1000; // 1 MB
+  final _algorithm = AesGcm.with256bits();
 
   @override
   void initState() {
@@ -56,7 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
       throw jsonDecode(utf8.decode(response.bodyBytes))["error"];
     }
     setState(() {
-      token = jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"];
+      token = "Bearer " +
+          jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"];
       folderId = jsonDecode(utf8.decode(response.bodyBytes))["user"]["accounts"]
           [0]["rootFolderId"];
       loading = false;
@@ -66,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> pickFile() async {
     final input = FileUploadInputElement();
 
-    input.onChange.listen((e) {
+    input.onChange.listen((e) async {
       final files = input.files;
 
       if (files!.isNotEmpty) {
@@ -76,11 +84,71 @@ class _HomeScreenState extends State<HomeScreen> {
         print(file!.size);
         print(file!.name);
 
+        Uint8List aesKeyB = EncryptApi().generateAesKey();
+        String aesKeyS = EncryptApi().bytesToString(aesKeyB);
+
+        final response = await http.post(
+          Uri.https(
+            host,
+            "${url}file/initUpload",
+          ),
+          body: {
+            "folderId": folderId,
+            "filename": file!.name,
+            "encryptedKey": aesKeyS,
+          },
+          headers: {"Authorization": token},
+        );
+        final String uniqueId =
+            jsonDecode(utf8.decode(response.bodyBytes))["fileVersion"]
+                ["unique_id"];
+        // Open the request
+        http.StreamedRequest request = http.StreamedRequest(
+          "POST",
+          Uri.parse("$host/${url}file/upload/$uniqueId"),
+        )
+          ..headers["Authorization"] = token
+          ..headers["ctype"] = "application/octet-stream";
+
+        // Do the encryption here:
+        final secretKey = SecretKey(aesKeyB);
+        final nonce = _algorithm.newNonce();
+        Stream<List<int>> encryptStream = _algorithm.encryptStream(
+          _openFileReadStream(file!),
+          secretKey: secretKey,
+          nonce: nonce,
+          onMac: (mac) {
+            print(mac.bytes);
+          },
+        );
+        EventSink<List<int>> requestSink = request.sink;
+        await encryptStream.listen((chunk) {
+          requestSink.add(chunk);
+        }).asFuture();
+
+        request.sink.close();
+
+        final uploadResponse = await request.send();
+        print(uploadResponse.request);
       }
     });
 
-    // Trigger the file picker dialog
     input.click();
   }
 
+  Stream<List<int>> _openFileReadStream(File file) async* {
+    final reader = FileReader();
+
+    int start = 0;
+    while (start < file.size) {
+      final end = start + _readStreamChunkSize > file.size
+          ? file.size
+          : start + _readStreamChunkSize;
+      final blob = file.slice(start, end);
+      reader.readAsArrayBuffer(blob);
+      await reader.onLoad.first;
+      yield reader.result as List<int>;
+      start += _readStreamChunkSize;
+    }
+  }
 }

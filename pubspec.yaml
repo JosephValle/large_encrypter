@@ -20,6 +20,7 @@ dependencies:
   universal_html: ^2.2.3
   file_picker: ^5.3.2
   fast_rsa: ^3.5.7
+  js: ^0.6.7
 
 dev_dependencies:
   flutter_test:
