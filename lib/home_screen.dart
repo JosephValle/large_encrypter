@@ -113,20 +113,21 @@ class _HomeScreenState extends State<HomeScreen> {
         // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
         final nonce = _algorithm.newNonce();
-        Stream<List<int>> encryptStream = _algorithm.encryptStream(
-          _openFileReadStream(file!),
-          secretKey: secretKey,
-          nonce: nonce,
-          onMac: (mac) {
-            print(mac.bytes);
-          },
-        );
-        EventSink<List<int>> requestSink = request.sink;
-        await encryptStream.listen((chunk) {
-          requestSink.add(chunk);
-        }).asFuture();
+        // Method in here to read the file a chunk at a time, print out the chunks
 
-        request.sink.close();
+        // Use web crypto method 128*10 buffer
+
+        // response is a byte buffer encrypted bytes
+
+
+
+        // EventSink<List<int>> requestSink = request.sink;
+        // encryptStream.listen((chunk) {
+        //   print(chunk.length);
+        //   requestSink.add(chunk);
+        // }).onDone(() {
+        //   request.sink.close();
+        // });
 
         final uploadResponse = await request.send();
         print(uploadResponse.request);
@@ -135,16 +136,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     input.click();
   }
+
   Stream<List<int>> _openFileReadStream(File file) async* {
     final reader = FileReader();
 
     int start = 0;
     while (start < file.size) {
-      final end = start + _readStreamChunkSize > file.size ? file.size : start + _readStreamChunkSize;
+      final end = start + _readStreamChunkSize > file.size
+          ? file.size
+          : start + _readStreamChunkSize;
       final blob = file.slice(start, end);
       reader.readAsArrayBuffer(blob);
       await reader.onLoad.first;
       final result = reader.result;
+      await Future.delayed(const Duration(microseconds: 1));
       if (result is ByteBuffer) {
         yield result.asUint8List();
       } else if (result is Uint8List) {
