@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String folderId = "";
   File? file;
   File? decryptedFile;
-  final int _readStreamChunkSize = 1000 * 1000; // 1 MB
+  final int _readStreamChunkSize = 64 * 1000; // 64KB
   final _algorithm = AesGcm.with256bits();
 
   @override
@@ -135,19 +135,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
     input.click();
   }
-
   Stream<List<int>> _openFileReadStream(File file) async* {
     final reader = FileReader();
 
     int start = 0;
     while (start < file.size) {
-      final end = start + _readStreamChunkSize > file.size
-          ? file.size
-          : start + _readStreamChunkSize;
+      final end = start + _readStreamChunkSize > file.size ? file.size : start + _readStreamChunkSize;
       final blob = file.slice(start, end);
       reader.readAsArrayBuffer(blob);
       await reader.onLoad.first;
-      yield reader.result as List<int>;
+      final result = reader.result;
+      if (result is ByteBuffer) {
+        yield result.asUint8List();
+      } else if (result is Uint8List) {
+        yield result;
+      }
       start += _readStreamChunkSize;
     }
   }
