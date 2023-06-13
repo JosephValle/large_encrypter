@@ -14,7 +14,4 @@ class EncryptApi {
   String bytesToString(Uint8List bytes) {
     return base64.encode(bytes);
   }
-
-
-
 }
