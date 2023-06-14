@@ -27,9 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String folderId = "";
   File? file;
   File? decryptedFile;
+  String fileId = "";
   final int _readStreamChunkSize = 128 * 100000;
   final _algorithm = AesGcm.with256bits();
-  final bool loadingBar = true;
+  bool loadingBar = false;
+  Uint8List aesKeyB = EncryptApi().generateAesKey();
+  bool uploaded = false;
 
   @override
   void initState() {
@@ -47,16 +50,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: loadingBar
-                        ? const LinearProgressIndicator()
-                        : const SizedBox.shrink(),
+                  if (loadingBar) const LinearProgressIndicator(),
+                  Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ElevatedButton(
+                      onPressed: () => pickFile(),
+                      child: const Text("Upload File"),
+                    ),
                   ),
-                  ElevatedButton(
-                    onPressed: () => pickFile(),
-                    child: const Text("Upload File"),
-                  ),
+                  if (uploaded)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: ElevatedButton(
+                        onPressed: () => downloadAndDecryptFile(
+                          fileId,
+                          SecretKey(aesKeyB),
+                          "Name.mp4",
+                          "0",
+                        ),
+                        child: const Text("Download File"),
+                      ),
+                    ),
+                  Spacer(),
                 ],
               ),
       ),
@@ -71,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
       throw jsonDecode(utf8.decode(response.bodyBytes))["error"];
     }
     setState(() {
-      token = "Bearer ${jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"]}";
+      token =
+          "Bearer ${jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"]}";
       folderId = jsonDecode(utf8.decode(response.bodyBytes))["user"]["accounts"]
           [0]["rootFolderId"];
       loading = false;
@@ -79,19 +96,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> pickFile() async {
+    setState(() {
+      uploaded = false;
+    });
     final input = FileUploadInputElement();
-
     input.onChange.listen((e) async {
       final files = input.files;
 
       if (files!.isNotEmpty) {
         setState(() {
           file = files[0];
+          loadingBar = true;
         });
+
         print(file!.size);
         print(file!.name);
 
-        Uint8List aesKeyB = EncryptApi().generateAesKey();
         String aesKeyS = EncryptApi().bytesToString(aesKeyB);
 
         final response = await http.post(
@@ -106,6 +126,10 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           headers: {"Authorization": token},
         );
+        setState(() {
+          fileId = jsonDecode(utf8.decode(response.bodyBytes))["fileVersion"]
+              ["fileId"];
+        });
         final String uniqueId =
             jsonDecode(utf8.decode(response.bodyBytes))["fileVersion"]
                 ["unique_id"];
@@ -150,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
           await reader.onLoad.first;
           final result = reader.result;
           if (result is ByteBuffer) {
-
             final byteBuffer = await web_crypto.encrypt(
               web_crypto.AesGcmParams(
                 name: "AES-GCM",
@@ -176,7 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
             requestSink.add(byteBuffer.asUint8List());
           }
           start += _readStreamChunkSize;
-          print("Chunk $start");
         }
 
         // EventSink<List<int>> requestSink = request.sink;
@@ -188,12 +210,109 @@ class _HomeScreenState extends State<HomeScreen> {
         // });
 
         final uploadResponse = await request.send();
-        print(uploadResponse.request);
         print("DONE AND SENT");
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: Duration(seconds: 1), content: Text("Done Upload")));
+        setState(() {
+          uploaded = true;
+          loadingBar = false;
+        });
       }
     });
 
     input.click();
   }
 
+  Future<void> downloadAndDecryptFile(
+    String fileId,
+    SecretKey secretKey,
+    String fileName,
+    String version,
+  ) async {
+    print("Starting download");
+    var params = {
+      "fileId": fileId,
+      "version": version,
+    };
+    final response = await http.get(
+      Uri.https(host, "${this.url}file/$fileId/$version", params),
+      headers: {"Authorization": token},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to download the file");
+    }
+
+    String url = jsonDecode(utf8.decode(response.bodyBytes))["fileInfo"]["url"];
+    print("Got File URL");
+
+    final downloadResponse = await http.get(
+      Uri.parse(url),
+      headers: {"Authorization": token},
+    );
+    print("File Downloaded");
+
+    final jsCryptoKey = await BrowserSecretKey.jsCryptoKeyForAes(
+      secretKey,
+      secretKeyLength: 32,
+      webCryptoAlgorithm: "AES-GCM",
+      isExtractable: false,
+      allowEncrypt: false,
+      allowDecrypt: true,
+    );
+
+    print("Got key");
+
+    final encryptedBytes = downloadResponse.bodyBytes;
+    final encryptedByteBuffer = encryptedBytes.buffer;
+
+    print("Did this stuff");
+
+    // Decryption in chunks
+    const int chunkSize = 128 * 100000; // same chunk size as in encryption
+    List<int> decryptedBytes = [];
+
+    int start = 0;
+    print("Starting Chunks");
+
+    while (start < encryptedByteBuffer.lengthInBytes) {
+      int end = start + chunkSize > encryptedByteBuffer.lengthInBytes
+          ? encryptedByteBuffer.lengthInBytes
+          : start + chunkSize;
+
+      final slice = encryptedByteBuffer.asUint8List(start, end);
+
+      final decryptedByteBuffer = await web_crypto.decrypt(
+        web_crypto.AesGcmParams(
+          name: "AES-GCM",
+          iv: jsArrayBufferFrom(slice.sublist(0, 16)),
+          additionalData: jsArrayBufferFrom([]),
+          tagLength: AesGcm.aesGcmMac.macLength * 8,
+        ),
+        jsCryptoKey,
+        jsArrayBufferFrom(slice),
+      );
+
+      decryptedBytes.addAll(decryptedByteBuffer.asUint8List());
+      print("1 Chunk Done");
+
+      start += chunkSize;
+    }
+
+    // Initiating the download of the decrypted file
+    final blob = Blob([Uint8List.fromList(decryptedBytes)]);
+    final test = Url.createObjectUrlFromBlob(blob);
+    AnchorElement(href: test)
+      ..setAttribute("download", fileName)
+      ..click();
+    Url.revokeObjectUrl(test);
+    print("Done Chunks");
+
+  }
+
+  String prettyPrint(Map<String, dynamic> json) {
+    JsonEncoder encoder = const JsonEncoder.withIndent("  ");
+    String prettyString = encoder.convert(json);
+    return prettyString;
+  }
 }
