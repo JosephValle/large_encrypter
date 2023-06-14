@@ -1,10 +1,7 @@
-// ignore_for_file: prefer_interpolation_to_compose_strings
 import "dart:convert";
-import "dart:math";
 import "dart:typed_data";
 import "package:cryptography/cryptography.dart";
-
-import '_javascript_bindings.dart' show jsArrayBufferFrom;
+import "_javascript_bindings.dart" show jsArrayBufferFrom;
 import "_javascript_bindings.dart" as web_crypto;
 import "browser_key.dart";
 import "dart:async";
@@ -30,8 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String folderId = "";
   File? file;
   File? decryptedFile;
-  final int _readStreamChunkSize = 128 * 1000;
+  final int _readStreamChunkSize = 128 * 100000;
   final _algorithm = AesGcm.with256bits();
+  final bool loadingBar = true;
 
   @override
   void initState() {
@@ -47,8 +45,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ? const CircularProgressIndicator()
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: loadingBar
+                        ? const LinearProgressIndicator()
+                        : const SizedBox.shrink(),
+                  ),
                   ElevatedButton(
                     onPressed: () => pickFile(),
                     child: const Text("Upload File"),
@@ -67,8 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
       throw jsonDecode(utf8.decode(response.bodyBytes))["error"];
     }
     setState(() {
-      token = "Bearer " +
-          jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"];
+      token = "Bearer ${jsonDecode(utf8.decode(response.bodyBytes))["sessionToken"]}";
       folderId = jsonDecode(utf8.decode(response.bodyBytes))["user"]["accounts"]
           [0]["rootFolderId"];
       loading = false;
@@ -110,9 +113,10 @@ class _HomeScreenState extends State<HomeScreen> {
         http.StreamedRequest request = http.StreamedRequest(
           "POST",
           Uri.parse("https://$host/${url}file/upload/$uniqueId"),
-        )
-          ..headers["Authorization"] = token
-          ..headers["ctype"] = "application/octet-stream";
+        );
+
+        request.headers["Authorization"] = token;
+        request.headers["Content-Type"] = "application/octet-stream";
 
         // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
@@ -146,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
           await reader.onLoad.first;
           final result = reader.result;
           if (result is ByteBuffer) {
+
             final byteBuffer = await web_crypto.encrypt(
               web_crypto.AesGcmParams(
                 name: "AES-GCM",
@@ -156,7 +161,6 @@ class _HomeScreenState extends State<HomeScreen> {
               jsCryptoKey,
               jsArrayBufferFrom(result.asUint8List()),
             );
-
             requestSink.add(byteBuffer.asUint8List());
           } else if (result is Uint8List) {
             final byteBuffer = await web_crypto.encrypt(
@@ -172,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
             requestSink.add(byteBuffer.asUint8List());
           }
           start += _readStreamChunkSize;
+          print("Chunk $start");
         }
 
         // EventSink<List<int>> requestSink = request.sink;
@@ -184,30 +189,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final uploadResponse = await request.send();
         print(uploadResponse.request);
+        print("DONE AND SENT");
       }
     });
 
     input.click();
   }
 
-  Stream<List<int>> _openFileReadStream(File file) async* {
-    final reader = FileReader();
-
-    int start = 0;
-    while (start < file.size) {
-      final end = start + _readStreamChunkSize > file.size
-          ? file.size
-          : start + _readStreamChunkSize;
-      final blob = file.slice(start, end);
-      reader.readAsArrayBuffer(blob);
-      await reader.onLoad.first;
-      final result = reader.result;
-      if (result is ByteBuffer) {
-        yield result.asUint8List();
-      } else if (result is Uint8List) {
-        yield result;
-      }
-      start += _readStreamChunkSize;
-    }
-  }
 }

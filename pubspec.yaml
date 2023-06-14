@@ -1,7 +1,7 @@
 name: large_encryption
 description: A project for flutter web to select, upload, and encrypt files of any size, while optimizing memory!
 
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 

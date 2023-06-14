@@ -3,7 +3,7 @@ import "dart:typed_data";
 
 import "package:cryptography/cryptography.dart";
 import "package:cryptography/helpers.dart";
-import '_javascript_bindings.dart' show jsArrayBufferFrom;
+import "_javascript_bindings.dart" show jsArrayBufferFrom;
 import "_javascript_bindings.dart" as web_crypto;
 
 class BrowserSecretKey extends SecretKey {
@@ -41,7 +41,7 @@ class BrowserSecretKey extends SecretKey {
       return existing;
     }
     throw StateError(
-      'The Web Cryptography secret key has been destroyed.',
+      "The Web Cryptography secret key has been destroyed.",
     );
   }
 
@@ -72,7 +72,7 @@ class BrowserSecretKey extends SecretKey {
   Future<SecretKeyData> extract() async {
     if (!isExtractable) {
       throw UnsupportedError(
-        'The Web Cryptography secret key is not extractable.',
+        "The Web Cryptography secret key is not extractable.",
       );
     }
     final existing = _secretKeyData;
@@ -90,18 +90,18 @@ class BrowserSecretKey extends SecretKey {
       return secretKeyData;
     } catch (error, stackTrace) {
       throw StateError(
-        'Web Cryptography throw an error: $error\n$stackTrace',
+        "Web Cryptography throw an error: $error\n$stackTrace",
       );
     }
   }
 
   @override
-  String toString() => 'BrowserSecretKey(\n'
-      '  ...,\n'
-      '  isExtractable: $isExtractable,\n'
-      '  allowEncrypt: $allowEncrypt,\n'
-      '  allowDecrypt: $allowDecrypt\n'
-      ')';
+  String toString() => "BrowserSecretKey(\n"
+      "  ...,\n"
+      "  isExtractable: $isExtractable,\n"
+      "  allowEncrypt: $allowEncrypt,\n"
+      "  allowDecrypt: $allowDecrypt\n"
+      ")";
 
   /// Generates a new secret key.
   static Future<BrowserSecretKey> generateForAes({
@@ -113,8 +113,8 @@ class BrowserSecretKey extends SecretKey {
     required Random? random,
   }) async {
     final usages = [
-      if (allowEncrypt) 'encrypt',
-      if (allowDecrypt) 'decrypt',
+      if (allowEncrypt) "encrypt",
+      if (allowDecrypt) "decrypt",
     ];
     if (random != null) {
       final bytes = Uint8List(secretKeyLength);
@@ -176,15 +176,15 @@ class BrowserSecretKey extends SecretKey {
       webCryptoAlgorithm,
       isExtractable,
       [
-        if (allowEncrypt) 'encrypt',
-        if (allowDecrypt) 'decrypt',
+        if (allowEncrypt) "encrypt",
+        if (allowDecrypt) "decrypt",
       ],
     );
   }
 
   static ArgumentError _secretKeyLengthError(int actual, int expected) {
     return ArgumentError(
-      'Secret key is ${actual * 8} bits, expected ${expected * 8} bits.',
+      "Secret key is ${actual * 8} bits, expected ${expected * 8} bits.",
     );
   }
 }

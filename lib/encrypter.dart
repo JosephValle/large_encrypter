@@ -3,7 +3,7 @@ import "dart:math";
 import "dart:typed_data";
 import "package:cryptography/cryptography.dart";
 
-import '_javascript_bindings.dart' show jsArrayBufferFrom;
+import "_javascript_bindings.dart" show jsArrayBufferFrom;
 import "_javascript_bindings.dart" as web_crypto;
 import "browser_key.dart";
 
@@ -20,8 +20,8 @@ class EncryptApi {
     return base64.encode(bytes);
   }
 
-  Future<void> encrypt(Uint8List key, Uint8List chunk) async  {
-    final _algorithm = AesGcm.with256bits();
+  Future<void> encrypt(Uint8List key, Uint8List chunk) async {
+    final algorithm = AesGcm.with256bits();
     SecretKey secretKey = SecretKey(key);
     final jsCryptoKey = await BrowserSecretKey.jsCryptoKeyForAes(
       secretKey,
@@ -31,7 +31,7 @@ class EncryptApi {
       allowEncrypt: true,
       allowDecrypt: false,
     );
-    final nonce = _algorithm.newNonce();
+    final nonce = algorithm.newNonce();
     final byteBuffer = await web_crypto.encrypt(
       web_crypto.AesGcmParams(
         name: "AES-GCM",
@@ -43,10 +43,6 @@ class EncryptApi {
       jsArrayBufferFrom(chunk),
     );
 
-
     print(byteBuffer.lengthInBytes);
-
   }
-
 }
-
