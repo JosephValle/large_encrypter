@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
           webCryptoAlgorithm: "AES-GCM",
           isExtractable: false,
           allowEncrypt: true,
-          allowDecrypt: false,
+          allowDecrypt: true,
         );
 
         // Method in here to read the file a chunk at a time, print out the chunks
@@ -207,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
               jsArrayBufferFrom(result),
             );
             requestSink.add(byteBuffer.asUint8List());
-            if (start == 0) {
+           // if (start == 0) {
               print(byteBuffer.asUint8List().sublist(0, 16));
               print("Original File Bytes");
               print(result.sublist(0,16));
@@ -224,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 jsArrayBufferFrom(byteBuffer.asUint8List()),
               );
               print(decryptedByteBuffer.asUint8List().sublist(0, 16));
-            }
+          //  }
           }
           start += _readStreamChunkSize;
         }
