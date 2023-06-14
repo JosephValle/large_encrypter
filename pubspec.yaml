@@ -31,3 +31,7 @@ dev_dependencies:
 flutter:
 
   uses-material-design: true
+  assets:
+    - packages/fast_rsa/web/assets/worker.js
+    - packages/fast_rsa/web/assets/wasm_exec.js
+    - packages/fast_rsa/web/assets/rsa.wasm
