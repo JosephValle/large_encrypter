@@ -276,11 +276,15 @@ class _HomeScreenState extends State<HomeScreen> {
     print("Starting Chunks");
 
     while (start < encryptedByteBuffer.lengthInBytes) {
+
+      print("Stage 1");
       int end = start + chunkSize > encryptedByteBuffer.lengthInBytes
           ? encryptedByteBuffer.lengthInBytes
           : start + chunkSize;
+      print("Stage 2");
 
       final slice = encryptedByteBuffer.asUint8List(start, end);
+      print("Stage 3");
 
       final decryptedByteBuffer = await web_crypto.decrypt(
         web_crypto.AesGcmParams(
@@ -292,9 +296,10 @@ class _HomeScreenState extends State<HomeScreen> {
         jsCryptoKey,
         jsArrayBufferFrom(slice),
       );
+      print("Stage 4");
 
       decryptedBytes.addAll(decryptedByteBuffer.asUint8List());
-      print("1 Chunk Done");
+      print("Stage 5");
 
       start += chunkSize;
     }
