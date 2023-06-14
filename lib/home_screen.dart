@@ -33,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool loadingBar = false;
   Uint8List aesKeyB = EncryptApi().generateAesKey();
   bool uploaded = false;
+  List<int> globalNonce = [];
 
   @override
   void initState() {
@@ -145,6 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
         final nonce = _algorithm.newNonce();
+        setState(() {
+          globalNonce = nonce;
+        });
 
         final jsCryptoKey = await BrowserSecretKey.jsCryptoKeyForAes(
           secretKey,
@@ -292,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final decryptedByteBuffer = await web_crypto.decrypt(
         web_crypto.AesGcmParams(
           name: "AES-GCM",
-          iv: jsArrayBufferFrom(slice.sublist(0, 16)),
+          iv: jsArrayBufferFrom(globalNonce),
           additionalData: jsArrayBufferFrom([]),
           tagLength: AesGcm.aesGcmMac.macLength * 8,
         ),
