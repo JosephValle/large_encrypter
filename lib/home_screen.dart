@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (loadingBar) const LinearProgressIndicator(),
-                  Spacer(),
+                  const Spacer(),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: ElevatedButton(
@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: const Text("Download File"),
                       ),
                     ),
-                  Spacer(),
+                  const Spacer(),
                 ],
               ),
       ),
@@ -209,10 +209,14 @@ class _HomeScreenState extends State<HomeScreen> {
         request.sink.close();
         // });
 
-        final uploadResponse = await request.send();
+        await request.send();
         print("DONE AND SENT");
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            duration: Duration(seconds: 1), content: Text("Done Upload")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text("Done Upload"),
+          ),
+        );
         setState(() {
           uploaded = true;
           loadingBar = false;
@@ -276,7 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
     print("Starting Chunks");
 
     while (start < encryptedByteBuffer.lengthInBytes) {
-
       print("Stage 1");
       int end = start + chunkSize > encryptedByteBuffer.lengthInBytes
           ? encryptedByteBuffer.lengthInBytes
@@ -312,7 +315,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ..click();
     Url.revokeObjectUrl(test);
     print("Done Chunks");
-
   }
 
   String prettyPrint(Map<String, dynamic> json) {
