@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   File? file;
   File? decryptedFile;
   String fileId = "";
-  final int _readStreamChunkSize = 128 * 100000;
+  final int _readStreamChunkSize = 16 * 10000;
   final _algorithm = AesGcm.with256bits();
   bool loadingBar = false;
   Uint8List aesKeyB = EncryptApi().generateAesKey();
@@ -174,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ? file!.size
               : start + _readStreamChunkSize;
           final blob = file!.slice(start, end);
+          print("ENCRYPT start=$start end=$end");
           reader.readAsArrayBuffer(blob);
           await reader.onLoad.first;
           final result = reader.result;
@@ -252,11 +253,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     String url = jsonDecode(utf8.decode(response.bodyBytes))["fileInfo"]["url"];
-    print("Got File URL");
+    print("Got File URL $url");
 
     final downloadResponse = await http.get(
       Uri.parse(url),
-      headers: {"Authorization": token},
+   //   headers: {"Authorization": token},
     );
     print("File Downloaded");
 
@@ -277,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> {
     print("Did this stuff");
 
     // Decryption in chunks
-    const int chunkSize = 128 * 100000; // same chunk size as in encryption
+    const int chunkSize = 16 * 10000; // same chunk size as in encryption
     List<int> decryptedBytes = [];
 
     int start = 0;
@@ -291,7 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
       print("Stage 2");
 
       final slice = encryptedByteBuffer.asUint8List(start, end);
-      print("Stage 3");
+      print("Stage 3 start=$start end=$end");
 
       final decryptedByteBuffer = await web_crypto.decrypt(
         web_crypto.AesGcmParams(
