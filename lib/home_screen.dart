@@ -10,6 +10,7 @@ import "package:universal_html/html.dart";
 import "package:http/http.dart" as http;
 import "package:flutter/material.dart";
 import "package:flutter_secure_storage/flutter_secure_storage.dart";
+import 'package:convert/convert.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -177,7 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ? file!.size
               : start + _readStreamChunkSize;
           final blob = file!.slice(start, end);
-          // print("ENCRYPT start=$start end=$end");
           reader.readAsArrayBuffer(blob);
           await reader.onLoad.first;
           final result = reader.result;
@@ -195,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
             requestSink.add(byteBuffer.asUint8List());
 
           } else if (result is Uint8List) {
+            //print("ENCRYPT start=$start end=$end length=${result.length}");
             final byteBuffer = await web_crypto.encrypt(
               web_crypto.AesGcmParams(
                 name: "AES-GCM",
@@ -205,10 +206,11 @@ class _HomeScreenState extends State<HomeScreen> {
               jsCryptoKey,
               jsArrayBufferFrom(result),
             );
+            print("ENCRYPT start=$start end=$end length=${byteBuffer.lengthInBytes}");
             requestSink.add(byteBuffer.asUint8List());
             if (start == 0) {
-              print("Original first chunk: ${byteBuffer.asUint8List().length}");
-              print(byteBuffer.asUint8List());
+             // print("Original first chunk: ${byteBuffer.asUint8List().length}");
+             // print(byteBuffer.asUint8List());
               setState(() {
                 firstBits = byteBuffer.asUint8List();
               });
@@ -312,11 +314,11 @@ class _HomeScreenState extends State<HomeScreen> {
           : start + chunkSize;
       print("Stage 2");
 
-      final slice = encryptedByteBuffer.asUint8List(start, end);
-      print("Stage 3 start=$start end=$end");
+      final slice = encryptedByteBuffer.asUint8List(start, end-start);
+      print("Stage 3 start=$start end=$end length=${slice.length} firstBits.length=${firstBits.length}");
 
       if (start == 0) {
-        print("Server first set of encrypted bytes: ${slice.length}");
+       /* print("Server first set of encrypted bytes: ${slice.length}");
         print(slice);
         print("Is this equal to the first set of encrypted bytes original?");
         print("First bytes");
@@ -324,17 +326,31 @@ class _HomeScreenState extends State<HomeScreen> {
         print(slice.first);
         print("Last bytes");
         print(firstBits.last);
-        print(slice.last);
+        print(slice.last); */
         if(slice.length == firstBits.length) {
           print("LOOPING");
+
+          var originalHex = hex.encode(firstBits);
+          var sliceHex = hex.encode(slice);
+         // print("originalHex: $originalHex");
+        //  print("========\n\n");
+        //  print("sliceHex: $sliceHex");
+/*
           for (int i = 0; i < firstBits.length ; i++) {
             if (slice[i] != firstBits[i]) {
               print("Unequal at: $i");
             }
+          }*/
+        //  print("DONE LOOPING");
+
+          if (originalHex == sliceHex) {
+            print("BOTH EQUAL");
+          } else {
+            print("BOTH NOT EQUAL");
           }
-          print("DONE LOOPING");
         }
       }
+      print("BEFORE DECRYPT");
       final decryptedByteBuffer = await web_crypto.decrypt(
         web_crypto.AesGcmParams(
           name: "AES-GCM",
@@ -345,7 +361,7 @@ class _HomeScreenState extends State<HomeScreen> {
         jsCryptoKey,
         jsArrayBufferFrom(slice),
       );
-      print("Stage 4");
+      print("AFTER DECRYPT");
 
       decryptedBytes.addAll(decryptedByteBuffer.asUint8List());
       print("Stage 5");
