@@ -222,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
       "fileId": fileId,
       "version": version,
     };
+    // Downloading the url info
     final response = await http.get(
       Uri.https(host, "${this.url}file/$fileId/$version", params),
       headers: {"Authorization": token},
@@ -233,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String url = jsonDecode(utf8.decode(response.bodyBytes))["fileInfo"]["url"];
     print("Got File URL $url");
-
+    // Downloading the actual file
     final downloadResponse = await http.get(
       Uri.parse(url),
     );
