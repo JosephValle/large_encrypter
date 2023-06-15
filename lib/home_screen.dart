@@ -239,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Uri.parse(url),
     );
     print("File Downloaded");
-
+    // Getting the key
     final jsCryptoKey = await BrowserSecretKey.jsCryptoKeyForAes(
       secretKey,
       secretKeyLength: 32,
@@ -258,6 +258,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Decryption in chunks
     const int chunkSize = 16 * 10000 + 16; // same chunk size as in encryption
+    // Currently here is where the bytes are stored, in memory
+    // TODO: Do this not in memory
     List<int> decryptedBytes = [];
 
     int start = 0;
