@@ -6,6 +6,8 @@ import "package:cryptography/helpers.dart";
 import "_javascript_bindings.dart" show jsArrayBufferFrom;
 import "_javascript_bindings.dart" as web_crypto;
 
+// This file is extracted from cryptography package
+
 class BrowserSecretKey extends SecretKey {
   web_crypto.CryptoKey? _jsCryptoKey;
 

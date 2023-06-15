@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
 import "package:large_encryption/home_screen.dart";
 
-void main() {
+Future<void> main() async {
   runApp(const MyApp());
 }
 

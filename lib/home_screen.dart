@@ -1,16 +1,15 @@
 import "dart:convert";
 import "dart:typed_data";
 import "package:cryptography/cryptography.dart";
-import "_javascript_bindings.dart" show jsArrayBufferFrom;
-import "_javascript_bindings.dart" as web_crypto;
-import "browser_key.dart";
+import "cryptography_extracts/_javascript_bindings.dart" show jsArrayBufferFrom;
+import "cryptography_extracts/_javascript_bindings.dart" as web_crypto;
 import "dart:async";
-import "package:large_encryption/encrypter.dart";
+import "package:large_encryption/key_generator.dart";
 import "package:universal_html/html.dart";
 import "package:http/http.dart" as http;
 import "package:flutter/material.dart";
-import "package:flutter_secure_storage/flutter_secure_storage.dart";
-import 'package:convert/convert.dart';
+
+import "cryptography_extracts/browser_key.dart";
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final String host = "devapi.privacyvault.ai";
   final String url = "";
-  final FlutterSecureStorage storage = const FlutterSecureStorage();
   bool loading = true;
   String token = "";
   String folderId = "";
@@ -32,10 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final int _readStreamChunkSize = 16 * 10000;
   final _algorithm = AesGcm.with256bits();
   bool loadingBar = false;
-  Uint8List aesKeyB = EncryptApi().generateAesKey();
+  Uint8List aesKeyB = KeyGenerator().generateAesKey();
   bool uploaded = false;
   List<int> globalNonce = [];
-  Uint8List firstBits = Uint8List(0);
 
   @override
   void initState() {
@@ -83,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> getData() async {
+    // Gets the proper auth token and ids for testing purposes
     var params = {"username": "viselozo@tutuapp.bid", "password": "Test123!"};
     final response = await http
         .get(Uri.https(host, "${url}auth/login", params), headers: {});
@@ -102,7 +100,9 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       uploaded = false;
     });
+    // Pick file using dart:html
     final input = FileUploadInputElement();
+    // When file is picked:
     input.onChange.listen((e) async {
       final files = input.files;
 
@@ -111,12 +111,10 @@ class _HomeScreenState extends State<HomeScreen> {
           file = files[0];
           loadingBar = true;
         });
+        print("File picked: ${file!.name}, size: ${file!.size}");
 
-        print(file!.size);
-        print(file!.name);
-
-        String aesKeyS = EncryptApi().bytesToString(aesKeyB);
-
+        String aesKeyS = KeyGenerator().bytesToString(aesKeyB);
+        // Upload initialization method
         final response = await http.post(
           Uri.https(
             host,
@@ -145,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
         request.headers["Authorization"] = token;
         request.headers["Content-Type"] = "application/octet-stream";
 
-        // Do the encryption here:
         final secretKey = SecretKey(aesKeyB);
         final nonce = _algorithm.newNonce();
         setState(() {
@@ -163,13 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
           allowDecrypt: true,
         );
 
-        // Method in here to read the file a chunk at a time, print out the chunks
-
-        // Use web crypto method 128*10 buffer
-
-        // response is a byte buffer encrypted bytes
         final reader = FileReader();
-
+        FileWriter.INIT;
         EventSink<List<int>> requestSink = request.sink;
 
         int start = 0;
@@ -181,59 +173,23 @@ class _HomeScreenState extends State<HomeScreen> {
           reader.readAsArrayBuffer(blob);
           await reader.onLoad.first;
           final result = reader.result;
-          if (result is ByteBuffer) {
-            final byteBuffer = await web_crypto.encrypt(
-              web_crypto.AesGcmParams(
-                name: "AES-GCM",
-                iv: jsArrayBufferFrom(nonce),
-                additionalData: jsArrayBufferFrom([]),
-                tagLength: AesGcm.aesGcmMac.macLength * 8,
-              ),
-              jsCryptoKey,
-              jsArrayBufferFrom(result.asUint8List()),
-            );
-            requestSink.add(byteBuffer.asUint8List());
 
-          } else if (result is Uint8List) {
-            //print("ENCRYPT start=$start end=$end length=${result.length}");
-            final byteBuffer = await web_crypto.encrypt(
-              web_crypto.AesGcmParams(
-                name: "AES-GCM",
-                iv: jsArrayBufferFrom(nonce),
-                additionalData: jsArrayBufferFrom([]),
-                tagLength: AesGcm.aesGcmMac.macLength * 8,
-              ),
-              jsCryptoKey,
-              jsArrayBufferFrom(result),
-            );
-            print("ENCRYPT start=$start end=$end length=${byteBuffer.lengthInBytes}");
-            requestSink.add(byteBuffer.asUint8List());
-            if (start == 0) {
-             // print("Original first chunk: ${byteBuffer.asUint8List().length}");
-             // print(byteBuffer.asUint8List());
-              setState(() {
-                firstBits = byteBuffer.asUint8List();
-              });
-            }
-            // print("Original File Bytes");
-            // print(result.sublist(0, 16));
-            // print("Decrypted File Bytes");
-            // TODO: Remove this
-            // final decryptedByteBuffer = await web_crypto.decrypt(
-            //   web_crypto.AesGcmParams(
-            //     name: "AES-GCM",
-            //     iv: jsArrayBufferFrom(nonce),
-            //     additionalData: jsArrayBufferFrom([]),
-            //     tagLength: AesGcm.aesGcmMac.macLength * 8,
-            //   ),
-            //   jsCryptoKey,
-            //   jsArrayBufferFrom(byteBuffer.asUint8List()),
-            // );
-            // print(decryptedByteBuffer.asUint8List().sublist(0, 16));
-            //  }
-          }
-          start += _readStreamChunkSize;
+          final byteBuffer = await web_crypto.encrypt(
+            web_crypto.AesGcmParams(
+              name: "AES-GCM",
+              iv: jsArrayBufferFrom(nonce),
+              additionalData: jsArrayBufferFrom([]),
+              tagLength: AesGcm.aesGcmMac.macLength * 8,
+            ),
+            jsCryptoKey,
+            jsArrayBufferFrom(result as Uint8List),
+          );
+          print(
+            "ENCRYPT start=$start end=$end length=${byteBuffer.lengthInBytes}",
+          );
+          requestSink.add(byteBuffer.asUint8List());
         }
+        start += _readStreamChunkSize;
 
         request.sink.close();
 
@@ -280,7 +236,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final downloadResponse = await http.get(
       Uri.parse(url),
-      //   headers: {"Authorization": token},
     );
     print("File Downloaded");
 
@@ -314,42 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
           : start + chunkSize;
       print("Stage 2");
 
-      final slice = encryptedByteBuffer.asUint8List(start, end-start);
-      print("Stage 3 start=$start end=$end length=${slice.length} firstBits.length=${firstBits.length}");
+      final slice = encryptedByteBuffer.asUint8List(start, end - start);
+      print("Stage 3 start=$start end=$end length=${slice.length} ");
 
-      if (start == 0) {
-       /* print("Server first set of encrypted bytes: ${slice.length}");
-        print(slice);
-        print("Is this equal to the first set of encrypted bytes original?");
-        print("First bytes");
-        print(firstBits.first);
-        print(slice.first);
-        print("Last bytes");
-        print(firstBits.last);
-        print(slice.last); */
-        if(slice.length == firstBits.length) {
-          print("LOOPING");
-
-          var originalHex = hex.encode(firstBits);
-          var sliceHex = hex.encode(slice);
-         // print("originalHex: $originalHex");
-        //  print("========\n\n");
-        //  print("sliceHex: $sliceHex");
-/*
-          for (int i = 0; i < firstBits.length ; i++) {
-            if (slice[i] != firstBits[i]) {
-              print("Unequal at: $i");
-            }
-          }*/
-        //  print("DONE LOOPING");
-
-          if (originalHex == sliceHex) {
-            print("BOTH EQUAL");
-          } else {
-            print("BOTH NOT EQUAL");
-          }
-        }
-      }
       print("BEFORE DECRYPT");
       final decryptedByteBuffer = await web_crypto.decrypt(
         web_crypto.AesGcmParams(
@@ -369,7 +291,6 @@ class _HomeScreenState extends State<HomeScreen> {
       start += chunkSize;
     }
 
-    // Initiating the download of the decrypted file
     final blob = Blob([Uint8List.fromList(decryptedBytes)]);
     final test = Url.createObjectUrlFromBlob(blob);
     AnchorElement(href: test)
@@ -377,11 +298,5 @@ class _HomeScreenState extends State<HomeScreen> {
       ..click();
     Url.revokeObjectUrl(test);
     print("Done Chunks");
-  }
-
-  String prettyPrint(Map<String, dynamic> json) {
-    JsonEncoder encoder = const JsonEncoder.withIndent("  ");
-    String prettyString = encoder.convert(json);
-    return prettyString;
   }
 }
