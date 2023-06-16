@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   File? file;
   File? decryptedFile;
   String fileId = "";
+  String fileName = "";
   final int _readStreamChunkSize = 16 * 10000;
   final _algorithm = AesGcm.with256bits();
   bool loadingBar = false;
@@ -66,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () => downloadAndDecryptFile(
                           fileId,
                           SecretKey(aesKeyB),
-                          "Name.mp4",
+                          fileName,
                           "0",
                         ),
                         child: const Text("Download File"),
@@ -109,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (files!.isNotEmpty) {
         setState(() {
           file = files[0];
+          fileName = file!.name;
           loadingBar = true;
         });
         print("File picked: ${file!.name}, size: ${file!.size}");
@@ -188,8 +190,8 @@ class _HomeScreenState extends State<HomeScreen> {
             "ENCRYPT start=$start end=$end length=${byteBuffer.lengthInBytes}",
           );
           requestSink.add(byteBuffer.asUint8List());
+          start += _readStreamChunkSize;
         }
-        start += _readStreamChunkSize;
 
         request.sink.close();
 
