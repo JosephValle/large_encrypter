@@ -163,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
         final reader = FileReader();
-        FileWriter.INIT;
         EventSink<List<int>> requestSink = request.sink;
 
         int start = 0;
@@ -224,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
       "fileId": fileId,
       "version": version,
     };
-    // Downloading the url info
     final response = await http.get(
       Uri.https(host, "${this.url}file/$fileId/$version", params),
       headers: {"Authorization": token},
